@@ -28,22 +28,21 @@ export default async function ChannelPage({
   const data = await res.json();
   const channel: Channel = data.items[0];
 
-  const subscription = session
-    ? await (
-        await fetch(
-          `https://youtube.googleapis.com/youtube/v3/subscriptions?part=snippet&forChannelId=${channelId}&mine=true&key=${process.env.YOUTUBE_API_KEY}`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.user.accessToken}`,
+  const subscription =
+    session && session.user.channelId !== channelId
+      ? await (
+          await fetch(
+            `https://youtube.googleapis.com/youtube/v3/subscriptions?part=snippet&forChannelId=${channelId}&mine=true&key=${process.env.YOUTUBE_API_KEY}`,
+            {
+              headers: {
+                Authorization: `Bearer ${session.user.accessToken}`,
+              },
             },
-          },
-        )
-      ).json()
-    : undefined;
+          )
+        ).json()
+      : undefined;
 
-  const subscribed = session
-    ? session.user.channelId === channelId || subscription.items?.length >= 1
-    : undefined;
+  const subscribed = session ? subscription?.items?.length >= 1 : undefined;
 
   const avatar =
     channel.snippet.thumbnails.high?.url ||
@@ -52,12 +51,12 @@ export default async function ChannelPage({
 
   async function updateSubscription() {
     "use server";
-    if (!session) return;
+    if (!session || session.user.channelId === channelId) return;
     if (subscribed !== undefined) {
       try {
         if (subscribed)
           await axios.delete(
-            `https://youtube.googleapis.com/youtube/v3/subscriptions?id=${subscription.items[0].id}&key=${process.env.YOUTUBE_API_KEY}`,
+            `https://youtube.googleapis.com/youtube/v3/subscriptions?id=${subscription?.items?.[0]?.id}&key=${process.env.YOUTUBE_API_KEY}`,
             {
               headers: {
                 Authorization: `Bearer ${session.user.accessToken}`,
@@ -112,7 +111,9 @@ export default async function ChannelPage({
                 <h1 className="text-3xl font-bold">{channel.snippet.title}</h1>
                 <p className="text-sm">{channel.snippet.customUrl}</p>
               </div>
-              {session && subscribed !== undefined ? (
+              {session &&
+              session.user.channelId !== channelId &&
+              subscribed !== undefined ? (
                 <form action={updateSubscription}>
                   <SubscribeButton subscribed={subscribed} />
                 </form>
